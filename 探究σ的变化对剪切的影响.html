@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>σ-τ坐标系可视化</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+            background: white;
+            width: 800px;  /* 调整画布宽度 */
+            height: 400px;
+        }
+        .controls {
+            margin: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            margin: 20px;
+            text-align: center;
+        }
+        input[type="range"], input[type="number"] {
+            margin: 0 10px;
+        }
+        .equations {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>探究σ的变化对剪切的影响</h1>
+    
+    <div class="controls">
+        <div class="equations">
+            <div>直线方程：τ = 0.5σ + 50</div>
+            <div id="circleEquation">圆方程：待计算</div>
+        </div>
+
+<div class="control-group">
+    <label>σ₁ (a, MPa):</label>
+    <input type="range" id="a" min="0" max="400" value="200">
+    <input type="number" id="aInput" min="0" max="400" value="200" style="width: 80px;">
+    <span id="aValue">200</span>
+</div>
+        
+        <div class="control-group">
+            <label>σ₃ (b, MPa):</label>
+            <input type="range" id="b" min="0" max="700" value="50">
+            <input type="number" id="bInput" min="-200" max="700" value="50" style="width: 80px;">
+            <span id="bValue">50</span>
+        </div>
+
+                <!-- 新增重置按钮 -->
+        <button class="reset-btn" id="resetButton">重置为初始值</button>
+        
+        <div id="intersectionStatus" style="margin-top:10px; font-weight:bold;"></div>
+    </div>
+
+        <div id="intersectionStatus" style="margin-top:10px; font-weight:bold;"></div>
+    </div>
+    
+    <canvas id="myCanvas" width="800" height="400"></canvas>
+    
+    <div class="footer">Created by Lant with Deepseek</div>
+
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        const aSlider = document.getElementById('a');
+        const bSlider = document.getElementById('b');
+        const aInput = document.getElementById('aInput');
+        const bInput = document.getElementById('bInput');
+        const aValue = document.getElementById('aValue');
+        const bValue = document.getElementById('bValue');
+        const statusDiv = document.getElementById('intersectionStatus');
+
+        // 坐标系参数（关键修正）
+        const scaleX = 1;  // X轴缩放（1单位=1像素）
+        const scaleY = -1; // Y轴反向
+        const originX = 300; // 原点X坐标（画布宽度一半）
+        const originY = 200; // 原点Y坐标（画布高度一半）
+
+        function drawCoordinateSystem() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制坐标轴（修正坐标轴位置）
+            ctx.beginPath();
+            ctx.strokeStyle = '#999';
+            // X轴
+            ctx.moveTo(0, originY);
+            ctx.lineTo(canvas.width, originY);
+            // Y轴
+            ctx.moveTo(originX, 0);
+            ctx.lineTo(originX, canvas.height);
+            ctx.stroke();
+
+            // 坐标轴标注（修正文本位置）
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText("σ (MPa)", canvas.width - 60, originY - 5);
+            ctx.fillText("τ (MPa)", originX + 10, 20);
+        }
+
+        function drawLine() {
+            ctx.beginPath();
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            
+            // 直线方程 τ = 0.5σ + 50（修正绘制范围）
+            const startX = -800; // 起始σ值
+            const endX = 800;    // 终止σ值
+            
+            // 转换为Canvas坐标
+            const startCanvasX = originX + startX * scaleX;
+            const startCanvasY = originY + (0.5 * startX + 50) * scaleY;
+            const endCanvasX = originX + endX * scaleX;
+            const endCanvasY = originY + (0.5 * endX + 50) * scaleY;
+            
+            ctx.moveTo(startCanvasX, startCanvasY);
+            ctx.lineTo(endCanvasX, endCanvasY);
+            ctx.stroke();
+        }
+
+        function drawCircle(a, b) {
+            const centerX = (a + b) / 2;
+            const radius = Math.abs(a - b) / 2;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            
+            // 转换为Canvas坐标（关键修正）
+            const canvasCenterX = originX + centerX * scaleX;
+            const canvasCenterY = originY + 0 * scaleY; // τ=0
+            const canvasRadius = radius * Math.abs(scaleX);
+            
+            ctx.arc(canvasCenterX, canvasCenterY, canvasRadius, 0, 2 * Math.PI);
+            ctx.stroke();
+        }
+
+        function checkIntersection(a, b) {
+            const k = 0.5; // 直线斜率
+            const m = 50;  // 直线截距
+            const h = (a + b)/2;
+            const r = Math.abs(a - b)/2;
+            
+            // 交点判别式
+            const A = 1 + k*k;
+            const B = -2*h + 2*k*m;
+            const C = h*h + m*m - r*r;
+            const discriminant = B*B - 4*A*C;
+            
+            return discriminant >= 0;
+        }
+
+        function updateEquations(a, b) {
+            const center = ((a + b)/2).toFixed(1);
+            const radius = (Math.abs(a - b)/2).toFixed(1);
+            document.getElementById('circleEquation').innerHTML = 
+                `圆方程：(σ - ${center})² + τ² = ${radius}²`;
+        }
+
+        function syncValues(source, target1, target2, isInput) {
+            let value = parseInt(source.value);
+            if (isInput) {
+                value = Math.max(source.min, Math.min(source.max, value));
+                source.value = value;
+            }
+            target1.value = value;
+            target2.textContent = value;
+        }
+
+        function updatePlot() {
+            const a = parseInt(aSlider.value);
+            const b = parseInt(bSlider.value);
+            
+            drawCoordinateSystem();
+            drawLine();
+            drawCircle(a, b);
+            updateEquations(a, b);
+            
+            const hasIntersection = checkIntersection(a, b);
+            statusDiv.textContent = `当前状态：${hasIntersection ? '存在剪切交点' : '无剪切效应'}`;
+            statusDiv.style.color = hasIntersection ? 'green' : 'red';
+        }
+
+        // 事件监听
+        aSlider.addEventListener('input', () => {
+            syncValues(aSlider, aInput, aValue, false);
+            updatePlot();
+        });
+        bSlider.addEventListener('input', () => {
+            syncValues(bSlider, bInput, bValue, false);
+            updatePlot();
+        });
+        aInput.addEventListener('change', () => {
+            syncValues(aInput, aSlider, aValue, true);
+            updatePlot();
+        });
+        bInput.addEventListener('change', () => {
+            syncValues(bInput, bSlider, bValue, true);
+            updatePlot();
+        });
+ 
+        // 获取重置按钮
+        const resetButton = document.getElementById('resetButton');
+
+        // 重置函数
+        function resetValues() {
+            // 设置a的值
+            aSlider.value = 200;
+            aInput.value = 200;
+            aValue.textContent = 200;
+            
+            // 设置b的值
+            bSlider.value = 50;
+            bInput.value = 50;
+            bValue.textContent = 50;
+            
+            // 更新绘图
+            updatePlot();
+        }
+
+        // 绑定点击事件
+        resetButton.addEventListener('click', resetValues);
+    </script>
+</body>
+</html>
+       
